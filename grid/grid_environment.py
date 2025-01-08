@@ -4,9 +4,10 @@ class GridEnvironment:
         self.connectivity = connectivity
         self.grid = [[{"obstacle": False} for _ in range(self.cols)] for _ in range(self.rows)]
 
-    def add_obstacles(self, obstacles):
+    def add_obstacles(self, obstacles, sources, destinations):
         for x, y in obstacles:
-            self.grid[x][y]["obstacle"] = True
+            if (x, y) not in sources and (x, y) not in destinations:
+                self.grid[x][y]["obstacle"] = True
 
     def is_obstacle(self, x, y):
         return self.grid[x][y]["obstacle"]
