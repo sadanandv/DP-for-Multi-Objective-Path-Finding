@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters
-grid_sizes=("8,8" "16,16" "32,32")
+grid_sizes=("8,8" "16,16" "32,32", "64,64", "128,128", "256,256", "512,512", "1024,1024")
 connectivities=("4-connected" "8-connected")
 obstacle_modes=("static" "dynamic")
 obstacle_densities=(0.0 0.2 0.8)

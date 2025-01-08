@@ -47,23 +47,24 @@ def main():
     forward_dp = ForwardDP(grid, sources, destinations)
     backward_dp = BackwardDP(grid, sources, destinations)
 
+    dynamic_obstacle_positions = []
+    dynamic_paths = []
     all_paths = []  # Initialize `all_paths` here
+
+    max_steps = 2048  # A safe upper bound for very complex scenarios
     completed_path_ids = set()
-    time_step = 0
     all_paths_completed = False
-    max_backup_steps = 2048
-    stagnation_limit = 50
-    no_progress_count = 0
 
-    while not all_paths_completed and time_step < max_backup_steps:
-        time_step += 1
-
+    for time_step in range(1, max_steps + 1):
         if obstacle_mode == "dynamic":
-            obstacle_manager.update_dynamic_obstacles_with_logging(obstacles, grid, time_step)
+            obstacle_positions = obstacle_manager.update_dynamic_obstacles_with_logging(obstacles, grid, time_step)
+        elif obstacle_mode == "static":
+            obstacle_positions = {"positions": obstacles}
 
         forward_paths = forward_dp.solve(time_step)
         backward_paths = backward_dp.solve(time_step)
 
+        # Track progress
         new_paths_found = False
         for idx, path in enumerate(forward_paths + backward_paths):
             path_id = path.get("path_id", idx + 1)  # Use existing path_id or assign a unique ID
@@ -82,17 +83,21 @@ def main():
                 "completed": path["completed"]
             })
 
-        if len(completed_path_ids) == len(destinations):
+
+        dynamic_obstacle_positions.append({
+            "time_step": time_step,
+            "positions": obstacle_positions["positions"],
+            "paths": [path for path in forward_paths + backward_paths if path["completed"]]
+        })
+
+
+        # Stop if all paths are completed or no progress is being made
+        if not new_paths_found and len(completed_path_ids) == len(destinations):
             all_paths_completed = True
-
-        if not new_paths_found:
-            no_progress_count += 1
-        else:
-            no_progress_count = 0
-
-        if no_progress_count >= stagnation_limit:
-            print(f"Warning: No progress for {stagnation_limit} iterations. Stopping.")
             break
+
+    if not all_paths_completed:
+        print(f"Warning: Maximum steps ({max_steps}) reached. Paths may be incomplete.")
 
     execution_time = time.time() - start_time
 
@@ -103,6 +108,15 @@ def main():
 
     with open(os.path.join(output_dir, "results.json"), "w") as json_file:
         json.dump(results, json_file, indent=4)
+
+    with open(os.path.join(output_dir, "dynamic_obstacles.csv"), "w", newline="") as obs_file:
+        writer = csv.DictWriter(obs_file, fieldnames=["time_step", "positions"])
+        writer.writeheader()
+        for entry in dynamic_obstacle_positions:
+            writer.writerow({
+                "time_step": entry["time_step"],
+                "positions": entry["positions"],
+            })
 
     with open(os.path.join(output_dir, "dynamic_paths.csv"), "w", newline="") as path_file:
         path_headers = ["time_step", "path_id", "nodes", "cost", "time", "completed"]
@@ -118,9 +132,10 @@ def main():
                 "completed": path["completed"],
             })
 
+    # Rank and save completed paths
     final_paths = [path for path in all_paths if path["completed"]]
-    ranked_paths = RankPaths.rank(final_paths, ranking_criteria)
 
+    ranked_paths = RankPaths.rank(final_paths, ranking_criteria)
     ranked_path_file = os.path.join(output_dir, "final_ranked_paths.csv")
     rank_headers = ["rank", "path_id", "start_node", "end_node", "nodes", "cost", "time"]
     with open(ranked_path_file, "w", newline="") as rank_file:
@@ -137,9 +152,8 @@ def main():
                 "time": path["time"]
             })
 
-    # Save the final visualization with all completed paths
-    visualizer = Visualizer(grid, obstacles, final_paths)
-    visualizer.save(os.path.join(output_dir, "final_paths_visualization.png"), sources, destinations)
+    #visualizer = Visualizer(grid, obstacles, [])
+    #visualizer.save_step_visualizations(output_dir, dynamic_obstacle_positions)
 
     print(f"Results saved to {output_dir}")
 
