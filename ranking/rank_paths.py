@@ -4,7 +4,8 @@ class RankPaths:
         self.criteria = criteria
 
     def rank(self):
-        """Rank paths by the specified criteria."""
-        if self.criteria == "distance":  # Currently assumes "cost" is equivalent to "distance"
+        if self.criteria == "distance":
             return sorted(self.paths, key=lambda p: p["cost"])
+        elif self.criteria == "time":
+            return sorted(self.paths, key=lambda p: p["time"])
         return self.paths
