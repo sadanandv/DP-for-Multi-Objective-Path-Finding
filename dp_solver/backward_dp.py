@@ -15,29 +15,27 @@ class BackwardDP:
                 if path:
                     paths.append(path)
         return paths
-
-    def _solve_from_dest_to_source(self, destination, source):
-        # Priority Queue for Dijkstra-like traversal
+    
+    def _solve_from_dest_to_source(self, source, destination):
         pq = PriorityQueue()
-        pq.put((0, [destination]))  # (cost, path)
+        pq.put((0, [destination], 0))  # (cost, path, steps)
         visited = set()
 
         while not pq.empty():
-            cost, path = pq.get()
+            cost, path, steps = pq.get()
             current = path[-1]
 
             if current in visited:
                 continue
             visited.add(current)
 
-            # Check if we've reached the source
             if current == source:
-                return {"nodes": path[::-1], "cost": cost}  # Reverse path to start from source
+                return {"nodes": path[::-1], "cost": cost, "time": steps}
 
-            # Add neighbors to the queue (backward traversal)
             for neighbor in self.grid.neighbors(*current):
                 if neighbor not in visited:
-                    transition_cost = CostFunctions.static_cost(*neighbor, *current)  # Reverse transition cost
-                    pq.put((cost + transition_cost, path + [neighbor]))
+                    transition_cost = CostFunctions.static_cost(*neighbor, *current)
+                    pq.put((cost + transition_cost, path + [neighbor], steps + 1))
 
         return None  # No path found
+
