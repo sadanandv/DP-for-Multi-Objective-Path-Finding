@@ -1,4 +1,3 @@
-
 # **Dynamic Programming Pipeline for Multi-Objective Pathfinding**
 
 ## **Overview**
@@ -6,6 +5,7 @@ This project implements a modular pipeline for solving multi-objective pathfindi
 - **Static and Dynamic Obstacles**: Obstacles can either remain fixed or move dynamically over time.
 - **Multiple Source and Destination Nodes**: Paths are computed between all source and destination node pairs.
 - **Path Ranking**: Paths are ranked based on cost metrics (e.g., distance, time) at the end of the experiment.
+- **Customizable Execution**: Supports runtime configurations for grid size, connectivity, obstacle properties, and ranking criteria.
 
 ---
 
@@ -46,40 +46,69 @@ dp_pipeline/
 1. **Grid Environment**:
    - Flexible grid sizes with support for 4-connected and 8-connected nodes.
    - Static or dynamic obstacles configurable by the user.
+   - Ensures source and destination nodes are obstacle-free.
 
 2. **Dynamic Programming Solvers**:
    - Implements forward and backward DP to find paths between all source and destination nodes.
    - Handles time-dependent costs and nondominance pruning.
+   - Tracks and includes time steps (number of moves) in the path evaluation.
 
 3. **Ranking**:
    - Ranks paths based on cost metrics (e.g., shortest distance, minimal time).
-   - Supports single and multi-objective ranking criteria.
+   - Supports single and multi-objective ranking criteria, including ranking by time.
 
 4. **Visualization**:
    - Visualizes grid, obstacles, and paths.
+   - Highlights source and destination nodes.
    - Animates dynamic obstacle movement if applicable.
+
+5. **Configurable Runtime Options**:
+   - Allows specifying grid size, connectivity, obstacle density, and ranking criteria via command-line arguments.
+   - Supports custom source and destination nodes.
 
 ---
 
 ## **Usage Instructions**
 
-### **1. Configure the Experiment**
-Modify the `config.py` file to define:
+### **1. Create and Activate Virtual Environment**
+It is recommended to use a virtual environment to isolate the pipeline dependencies:
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Linux/MacOS
+venv\Scripts\activate   # On Windows
+pip install -r requirements.txt
+```
+
+### **2. Configure the Experiment**
+You can define the following configurations either in `config.py` or via command-line arguments:
 - Grid size and connectivity.
 - Sources and destinations (multiple nodes).
 - Obstacle mode (static or dynamic).
 - Obstacle density and movement patterns (if dynamic).
 - Cost function parameters and ranking criteria.
 
-### **2. Run the Pipeline**
-Use `main.py` to execute the pipeline:
+### **3. Run the Pipeline**
+To execute the pipeline with default configurations:
 ```bash
 python main.py
 ```
 
-### **3. View Results**
+To override configurations at runtime:
+```bash
+python main.py \
+    --grid_size 12,12 \
+    --connectivity 4-connected \
+    --obstacle_mode static \
+    --obstacle_density 0.4 \
+    --ranking_criteria distance \
+    --sources "[(0,0),(1,1)]" \
+    --destinations "[(10,10),(11,11)]"
+```
+
+### **4. View Results**
 - Outputs include:
   - Ranked list of paths with cost metrics.
+  - Execution time and number of steps to the destination.
   - Visualizations of the grid and paths.
 
 ---
@@ -114,20 +143,20 @@ DESTINATION_NODES = [(14, 14), (13, 13)]
 ## **Modules in Detail**
 
 ### **1. `grid/`**
-- **`grid_environment.py`**: Creates the grid and connectivity structure.
+- **`grid_environment.py`**: Creates the grid and connectivity structure. Ensures obstacles do not overlap with source or destination nodes.
 - **`obstacle_manager.py`**: Places static or dynamic obstacles in the grid.
 - **`cost_functions.py`**: Defines static and dynamic costs for node transitions.
 
 ### **2. `dp_solver/`**
-- **`forward_dp.py`**: Solves forward DP for all source-destination pairs.
-- **`backward_dp.py`**: Solves backward DP for all source-destination pairs.
+- **`forward_dp.py`**: Solves forward DP for all source-destination pairs. Includes step count in the results.
+- **`backward_dp.py`**: Solves backward DP for all source-destination pairs. Includes step count in the results.
 - **`nondominance.py`**: Implements Pareto nondominance checks for cost vectors.
 
 ### **3. `ranking/`**
-- **`rank_paths.py`**: Ranks paths by cost after solving.
+- **`rank_paths.py`**: Ranks paths by cost or time after solving.
 
 ### **4. `visualization/`**
-- **`visualizer.py`**: Visualizes the grid, obstacles, and ranked paths.
+- **`visualizer.py`**: Visualizes the grid, obstacles, ranked paths, and highlights source/destination nodes.
 
 ---
 
@@ -135,10 +164,10 @@ DESTINATION_NODES = [(14, 14), (13, 13)]
 - Extend dynamic obstacle behavior to support custom movement rules.
 - Add support for more complex cost functions (e.g., energy or environmental factors).
 - Enable user-defined grid layouts for non-uniform environments.
+- Add more ranking criteria, such as energy efficiency or environmental impact.
 
 ---
 
 ## **References**
 This pipeline is inspired by the paper:
 - *"Time Dependency in Multiple Objective Dynamic Programming"*, Michael M. Kostreva and Malgorzata M. Wiecek, Journal of Mathematical Analysis and Applications.
-
