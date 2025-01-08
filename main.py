@@ -14,7 +14,6 @@ from visualization.visualizer import Visualizer
 import config
 
 def main():
-    # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Run the Dynamic Programming Pipeline.")
     parser.add_argument("--grid_size", type=str, help="Grid size as ROWS,COLS (e.g., 12,12)")
     parser.add_argument("--connectivity", type=str, help="Connectivity mode: '4-connected' or '8-connected'")
@@ -25,7 +24,6 @@ def main():
     parser.add_argument("--destinations", type=str, help="Destination nodes as a list of tuples (e.g., [(10,10), (11,11)])")
     args = parser.parse_args()
 
-    # Use config values or command-line arguments
     grid_size = tuple(map(int, args.grid_size.split(','))) if args.grid_size else config.GRID_SIZE
     connectivity = args.connectivity if args.connectivity else config.CONNECTIVITY
     obstacle_mode = args.obstacle_mode if args.obstacle_mode else config.OBSTACLE_MODE
@@ -34,90 +32,130 @@ def main():
     sources = eval(args.sources) if args.sources else config.SOURCE_NODES
     destinations = eval(args.destinations) if args.destinations else config.DESTINATION_NODES
 
-    # Create timestamped output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join("outputs", timestamp)
     os.makedirs(output_dir, exist_ok=True)
 
     start_time = time.time()
 
-    # Initialize grid environment
     grid = GridEnvironment(grid_size, connectivity)
 
-    # Manage obstacles
     obstacle_manager = ObstacleManager(obstacle_mode, obstacle_density)
     obstacles = obstacle_manager.place_obstacles(grid, sources, destinations)
     grid.add_obstacles(obstacles, sources, destinations)
 
-    # Initialize DP solvers
     forward_dp = ForwardDP(grid, sources, destinations)
     backward_dp = BackwardDP(grid, sources, destinations)
 
-    # Solve using DP
-    forward_paths = forward_dp.solve()
-    backward_paths = backward_dp.solve()
+    dynamic_obstacle_positions = []
+    dynamic_paths = []
+    all_paths = []  # Initialize `all_paths` here
 
-    # Rank paths by cost
-    ranker_forward = RankPaths(forward_paths, ranking_criteria)
-    ranked_forward_paths = ranker_forward.rank()
+    max_steps = 500  # A safe upper bound for very complex scenarios
+    completed_path_ids = set()
+    all_paths_completed = False
 
-    ranker_backward = RankPaths(backward_paths, ranking_criteria)
-    ranked_backward_paths = ranker_backward.rank()
+    for time_step in range(1, max_steps + 1):
+        if obstacle_mode == "dynamic":
+            obstacle_positions = obstacle_manager.update_dynamic_obstacles_with_logging(obstacles, grid, time_step)
+        elif obstacle_mode == "static":
+            obstacle_positions = {"positions": obstacles}
 
-    # Calculate execution time
+        forward_paths = forward_dp.solve(time_step)
+        backward_paths = backward_dp.solve(time_step)
+
+        # Track progress
+        new_paths_found = False
+        for idx, path in enumerate(forward_paths + backward_paths):
+            path_id = path.get("path_id", idx + 1)  # Use existing path_id or assign a unique ID
+            if path["completed"] and path_id in completed_path_ids:
+                continue
+            if path["completed"]:
+                completed_path_ids.add(path_id)
+            else:
+                new_paths_found = True
+            all_paths.append({
+                "time_step": time_step,
+                "path_id": path_id,
+                "nodes": path["nodes"],
+                "cost": path["cost"],
+                "time": path["time"],
+                "completed": path["completed"]
+            })
+
+
+        dynamic_obstacle_positions.append({
+            "time_step": time_step,
+            "positions": obstacle_positions["positions"],
+            "paths": [path for path in forward_paths + backward_paths if path["completed"]]
+        })
+
+
+        # Stop if all paths are completed or no progress is being made
+        if not new_paths_found and len(completed_path_ids) == len(destinations):
+            all_paths_completed = True
+            break
+
+    if not all_paths_completed:
+        print(f"Warning: Maximum steps ({max_steps}) reached. Paths may be incomplete.")
+
     execution_time = time.time() - start_time
 
-    # Save outputs
     results = {
         "execution_time_seconds": execution_time,
-        "ranked_forward_paths": ranked_forward_paths,
-        "ranked_backward_paths": ranked_backward_paths,
+        "completed_paths": sum(1 for path in all_paths if path["completed"]),
     }
 
     with open(os.path.join(output_dir, "results.json"), "w") as json_file:
         json.dump(results, json_file, indent=4)
 
-    with open(os.path.join(output_dir, "results.txt"), "w") as txt_file:
-        txt_file.write(f"Execution Time: {execution_time:.2f} seconds\n")
-        txt_file.write("Ranked Forward Paths:\n")
-        txt_file.writelines(f"{path}\n" for path in ranked_forward_paths)
-        txt_file.write("Ranked Backward Paths:\n")
-        txt_file.writelines(f"{path}\n" for path in ranked_backward_paths)
+    with open(os.path.join(output_dir, "dynamic_obstacles.csv"), "w", newline="") as obs_file:
+        writer = csv.DictWriter(obs_file, fieldnames=["time_step", "positions"])
+        writer.writeheader()
+        for entry in dynamic_obstacle_positions:
+            writer.writerow({
+                "time_step": entry["time_step"],
+                "positions": entry["positions"],
+            })
 
-    # Visualize ranked paths
-    visualizer_forward = Visualizer(grid, obstacles, ranked_forward_paths)
-    visualizer_forward.save(os.path.join(output_dir, "forward_paths_visualization.png"), sources, destinations)
+    with open(os.path.join(output_dir, "dynamic_paths.csv"), "w", newline="") as path_file:
+        path_headers = ["time_step", "path_id", "nodes", "cost", "time", "completed"]
+        writer = csv.DictWriter(path_file, fieldnames=path_headers)
+        writer.writeheader()
+        for path in all_paths:
+            writer.writerow({
+                "time_step": path["time_step"],
+                "path_id": path["path_id"],
+                "nodes": path["nodes"],
+                "cost": path["cost"],
+                "time": path["time"],
+                "completed": path["completed"],
+            })
 
-    visualizer_backward = Visualizer(grid, obstacles, ranked_backward_paths)
-    visualizer_backward.save(os.path.join(output_dir, "backward_paths_visualization.png"), sources, destinations)
+    # Rank and save completed paths
+    final_paths = [path for path in all_paths if path["completed"]]
 
-    # Prepare CSV output
-    csv_file_path = os.path.join("outputs", "experiment_results.csv")
-    csv_headers = [
-        "timestamp", "grid_size", "connectivity", "obstacle_mode", "obstacle_density",
-        "ranking_criteria", "source_node", "destination_node", "complete_path", "path_length",
-        "path_cost", "steps_taken", "execution_time", "num_paths"
-    ]
+    ranked_paths = RankPaths.rank(final_paths, ranking_criteria)
+    ranked_path_file = os.path.join(output_dir, "final_ranked_paths.csv")
+    rank_headers = ["rank", "path_id", "start_node", "end_node", "nodes", "cost", "time"]
+    with open(ranked_path_file, "w", newline="") as rank_file:
+        writer = csv.DictWriter(rank_file, fieldnames=rank_headers)
+        writer.writeheader()
+        for rank, path in enumerate(ranked_paths, start=1):
+            writer.writerow({
+                "rank": rank,
+                "path_id": path["path_id"],
+                "start_node": path["nodes"][0],
+                "end_node": path["nodes"][-1],
+                "nodes": path["nodes"],
+                "cost": path["cost"],
+                "time": path["time"]
+            })
 
-    rows = []
-    for path in ranked_forward_paths + ranked_backward_paths:
-        rows.append([
-            timestamp, grid_size, connectivity, obstacle_mode, obstacle_density,
-            ranking_criteria, path["nodes"][0], path["nodes"][-1], path["nodes"],
-            len(path["nodes"]), path["cost"], path["time"], execution_time,
-            len(ranked_forward_paths) + len(ranked_backward_paths)
-        ])
+    #visualizer = Visualizer(grid, obstacles, [])
+    #visualizer.save_step_visualizations(output_dir, dynamic_obstacle_positions)
 
-    if not os.path.exists(csv_file_path):
-        with open(csv_file_path, "w", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(csv_headers)  # Write headers
-
-    with open(csv_file_path, "a", newline="") as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerows(rows)  # Append rows
-
-    print(f"Results saved to {output_dir} and {csv_file_path}")
+    print(f"Results saved to {output_dir}")
 
 if __name__ == "__main__":
     main()

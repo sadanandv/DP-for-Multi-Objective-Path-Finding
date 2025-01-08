@@ -31,3 +31,10 @@ class ObstacleManager:
             else:
                 new_obstacles.append((x, y))
         return new_obstacles
+    
+    def log_obstacle_positions(self, obstacles, time_step):
+        return {"time_step": time_step, "positions": obstacles}
+
+    def update_dynamic_obstacles_with_logging(self, obstacles, grid, time_step):
+        new_obstacles = self.update_dynamic_obstacles(obstacles, grid)
+        return self.log_obstacle_positions(new_obstacles, time_step)    
