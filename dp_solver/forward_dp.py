@@ -19,28 +19,26 @@ class ForwardDP:
         return paths
 
     def _solve_from_source_to_dest(self, source, destination):
-        # Priority Queue for Dijkstra-like traversal
         pq = PriorityQueue()
-        pq.put((0, [source]))  # (cost, path)
+        pq.put((0, [source], 0))  # (cost, path, steps)
         visited = set()
 
         while not pq.empty():
-            cost, path = pq.get()
+            cost, path, steps = pq.get()
             current = path[-1]
 
             if current in visited:
                 continue
             visited.add(current)
 
-            # Check if we've reached the destination
             if current == destination:
-                return {"nodes": path, "cost": cost}
+                return {"nodes": path, "cost": cost, "time": steps}
 
-            # Add neighbors to the queue
             for neighbor in self.grid.neighbors(*current):
                 if neighbor not in visited:
                     transition_cost = CostFunctions.static_cost(*current, *neighbor)
-                    pq.put((cost + transition_cost, path + [neighbor]))
+                    pq.put((cost + transition_cost, path + [neighbor], steps + 1))
 
         return None  # No path found
+
 
