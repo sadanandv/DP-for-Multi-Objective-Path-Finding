@@ -37,6 +37,8 @@ dp_pipeline/
 │   └── __init__.py              # Makes the visualization folder a package.
 │
 ├── config.py                    # Global configurations for grid, obstacles, sources, etc.
+├── exp_parallel.sh              # Script to run parallel experiments.
+├── local_exp.sh                 # Script to run local experiments sequentially.
 └── README.md                    # Instructions and details about the pipeline.
 ```
 
@@ -65,6 +67,10 @@ dp_pipeline/
 5. **Configurable Runtime Options**:
    - Allows specifying grid size, connectivity, obstacle density, and ranking criteria via command-line arguments.
    - Supports custom source and destination nodes.
+
+6. **Parallel and Local Execution**:
+   - `exp_parallel.sh`: Runs experiments in parallel, leveraging all available CPU cores.
+   - `local_exp.sh`: Runs experiments sequentially for environments without parallel processing support.
 
 ---
 
@@ -105,7 +111,19 @@ python main.py \
     --destinations "[(10,10),(11,11)]"
 ```
 
-### **4. View Results**
+### **4. Run Experiments in Parallel**
+The `exp_parallel.sh` script allows running multiple experiments simultaneously, utilizing all available CPU cores. This is ideal for HPC systems or multi-core environments:
+```bash
+bash exp_parallel.sh
+```
+
+### **5. Run Experiments Sequentially**
+The `local_exp.sh` script runs experiments one at a time. This is useful for debugging or environments without parallel processing support:
+```bash
+bash local_exp.sh
+```
+
+### **6. View Results**
 - Outputs include:
   - Ranked list of paths with cost metrics.
   - Execution time and number of steps to the destination.
@@ -158,13 +176,6 @@ DESTINATION_NODES = [(14, 14), (13, 13)]
 ### **4. `visualization/`**
 - **`visualizer.py`**: Visualizes the grid, obstacles, ranked paths, and highlights source/destination nodes.
 
----
-
-## **Future Enhancements**
-- Extend dynamic obstacle behavior to support custom movement rules.
-- Add support for more complex cost functions (e.g., energy or environmental factors).
-- Enable user-defined grid layouts for non-uniform environments.
-- Add more ranking criteria, such as energy efficiency or environmental impact.
 
 ---
 
